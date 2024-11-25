@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Slip Extractor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Bank Slip Text Extractor</h1>
+        
+        <!-- Upload Section -->
+        <div class="upload-section">
+            <form id="upload-form">
+                <div class="file-input-container">
+                    <input type="file" id="file-input" name="file" accept=".jpg,.jpeg,.png">
+                    <label for="file-input" class="file-label">
+                        <span class="file-icon">📎</span>
+                        <span class="file-text">Choose a file or drag it here</span>
+                    </label>
+                </div>
+                <button type="submit" class="submit-btn">Extract Text</button>
+            </form>
+        </div>
+
+        <!-- Result Section -->
+        <div class="result-section">
+            <!-- Bank Detection Result -->
+            <div class="bank-detection">
+                <h3>ธนาคารที่ตรวจพบ:</h3>
+                <div class="bank-info">
+                    <p><strong>ธนาคาร:</strong> <span id="bank-name">-</span></p>
+                    <p><strong>ความแม่นยำ:</strong> <span id="similarity">-</span>%</p>
+                </div>
+            </div>
+
+            <!-- Image Preview -->
+            <div class="image-preview">
+                <img id="preview" src="" alt="Preview" style="display: none; width: 200px;">
+            </div>
+
+            <!-- Extracted Fields -->
+            <div class="extracted-text">
+                <h3>ข้อมูลที่สกัดได้:</h3>
+                <div id="fields-result">
+                    <div class="form-section">
+                        <h4>ข้อมูลธุรกรรม</h4>
+                        <div class="form-group">
+                            <label for="transaction-date">วันที่:</label>
+                            <input type="text" id="transaction-date" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="transaction-time">เวลา:</label>
+                            <input type="text" id="transaction-time" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="transaction-amount">จำนวนเงิน:</label>
+                            <input type="text" id="transaction-amount" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="transaction-fee">ค่าธรรมเนียม:</label>
+                            <input type="text" id="transaction-fee" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h4>ข้อมูลผู้โอน</h4>
+                        <div class="form-group">
+                            <label for="from-name">ชื่อ:</label>
+                            <input type="text" id="from-name" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="from-account">เลขบัญชี:</label>
+                            <input type="text" id="from-account" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="from-bank">ธนาคาร:</label>
+                            <input type="text" id="from-bank" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h4>ข้อมูลผู้รับ</h4>
+                        <div class="form-group">
+                            <label for="to-name">ชื่อ:</label>
+                            <input type="text" id="to-name" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="to-account">เลขบัญชี:</label>
+                            <input type="text" id="to-account" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="to-bank">ธนาคาร:</label>
+                            <input type="text" id="to-bank" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h4>ข้อมูลอ้างอิง</h4>
+                        <div class="form-group">
+                            <label for="references-ref_id">เลขที่อ้างอิง:</label>
+                            <input type="text" id="references-ref_id" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="references-trace_id">Trace ID:</label>
+                            <input type="text" id="references-trace_id" readonly>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="raw-text-section">
+                    <h3>ข้อความดิบ:</h3>
+                    <pre id="raw-result"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('file-input');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                // แสดงผลธนาคารที่ตรวจพบ
+                document.getElementById('bank-name').textContent = data.bank_name.replace(/_/g, ' ').toUpperCase();
+                document.getElementById('similarity').textContent = (data.similarity * 100).toFixed(2);
+
+                // แสดงรูปภาพ
+                document.getElementById('preview').src = data.image_path;
+                document.getElementById('preview').style.display = 'block';
+
+                // แสดงข้อความดิบ
+                document.getElementById('raw-result').textContent = data.raw_text;
+
+                // แสดงข้อมูลที่แยกแล้ว
+                const fields = data.fields;
+
+                // Transaction
+                Object.keys(fields.transaction).forEach(key => {
+                    const element = document.getElementById(`transaction-${key}`);
+                    if (element) {
+                        element.value = fields.transaction[key] || '-';
+                    }
+                });
+
+                // From
+                Object.keys(fields.from).forEach(key => {
+                    const element = document.getElementById(`from-${key}`);
+                    if (element) {
+                        element.value = fields.from[key] || '-';
+                    }
+                });
+
+                // To
+                Object.keys(fields.to).forEach(key => {
+                    const element = document.getElementById(`to-${key}`);
+                    if (element) {
+                        element.value = fields.to[key] || '-';
+                    }
+                });
+
+                // References
+                Object.keys(fields.references).forEach(key => {
+                    const element = document.getElementById(`references-${key}`);
+                    if (element) {
+                        element.value = fields.references[key] || '-';
+                    }
+                });
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while processing the image');
+            }
+        });
+
+        // Drag and drop functionality
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.querySelector('.file-input-container');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropZone.classList.add('highlight');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('highlight');
+        }
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+        }
+    </script>
+</body>
+</html>
