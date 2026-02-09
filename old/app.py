@@ -73,7 +73,7 @@ def extract_fields_by_bank(text, bank_name):
 
     # แยกข้อความเป็นบรรทัด
     lines = [line.strip() for line in text.split('\n') if line.strip()]
-    # print(lines)
+    print(lines)
 
     # เลือกฟังก์ชันการแยกข้อมูลตามธนาคาร
     if bank_name == "bangkok_bank":
@@ -176,6 +176,10 @@ def extract_krungthai(lines, fields):
         if 'วันที่ทํารายการ' in line:
             # เพิ่ม print เพื่อ debug
             print(f"Line being processed: {clean_line}")
+            # print(f"M: {}")
+            date, time = clean_line.replace('วันที่ทํารายการ', '').strip().split('-')
+            fields['transaction']['date'] = date
+            fields['transaction']['time'] = time
             
             # ปรับ pattern ให้ยืดหยุ่นมากขึ้นและรองรับช่องว่างหลายรูปแบบ
             date_time_match = re.search(r'.*?(\d{1,2}\s*[ก-์]+\.?\s*\d{4})\s*-\s*(\d{1,2}:\d{2})\'?', clean_line)

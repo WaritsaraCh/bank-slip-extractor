@@ -1,15 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bank Slip Extractor</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body>
     <div class="container">
         <h1>Bank Slip Text Extractor</h1>
-        
+
         <!-- Upload Section -->
         <div class="upload-section">
             <form id="upload-form">
@@ -34,11 +36,18 @@
                     <p><strong>ความแม่นยำ:</strong> <span id="similarity">-</span>%</p>
                 </div>
             </div>
+            <div class="result-container">
+                <div class="image-preview">
+                    <img id="preview" src="" alt="Preview">
+                </div>
 
-            <!-- Image Preview -->
-            <div class="image-preview">
-                <img id="preview" src="" alt="Preview" style="display: none; width: 200px;">
+                <div class="raw-text-section">
+                    <h3>ข้อความดิบ:</h3>
+                    <pre id="raw-result"></pre>
+                </div>
             </div>
+
+
 
             <!-- Extracted Fields -->
             <div class="extracted-text">
@@ -109,10 +118,6 @@
                     </div>
                 </div>
 
-                <div class="raw-text-section">
-                    <h3>ข้อความดิบ:</h3>
-                    <pre id="raw-result"></pre>
-                </div>
             </div>
         </div>
     </div>
@@ -120,7 +125,7 @@
     <script>
         document.getElementById('upload-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const fileInput = document.getElementById('file-input');
             const file = fileInput.files[0];
             if (!file) return;
@@ -129,63 +134,81 @@
             formData.append('file', file);
 
             try {
-                const response = await fetch('/', {
+                const response = await fetch('/upload', {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.error) {
                     alert(data.error);
                     return;
                 }
+                console.log("Response data:", data);
 
                 // แสดงผลธนาคารที่ตรวจพบ
-                document.getElementById('bank-name').textContent = data.bank_name.replace(/_/g, ' ').toUpperCase();
-                document.getElementById('similarity').textContent = (data.similarity * 100).toFixed(2);
+                const bankName = data.bank_name || "UNKNOWN"; // ตรวจสอบว่ามีค่าก่อน
+                document.getElementById('bank-name').textContent = bankName.replace(/_/g, ' ').toUpperCase();
+
+                const simValue = data.similarity ?? 0;
+                document.getElementById('similarity').textContent = (simValue * 100).toFixed(2);
 
                 // แสดงรูปภาพ
-                document.getElementById('preview').src = data.image_path;
+                if (data.image_path) {
+                    document.getElementById('preview').src = data.image_path;
+                } else if (file) {
+                    // ถ้า Backend ไม่ส่ง path กลับมา ให้ใช้ Local URL แทน
+                    document.getElementById('preview').src = URL.createObjectURL(file);
+                }
                 document.getElementById('preview').style.display = 'block';
 
                 // แสดงข้อความดิบ
                 document.getElementById('raw-result').textContent = data.raw_text;
 
                 // แสดงข้อมูลที่แยกแล้ว
-                const fields = data.fields;
+                const fields = data.data || {};
 
                 // Transaction
-                Object.keys(fields.transaction).forEach(key => {
-                    const element = document.getElementById(`transaction-${key}`);
-                    if (element) {
-                        element.value = fields.transaction[key] || '-';
-                    }
-                });
-
+                if (fields.transaction) {
+                    Object.keys(fields.transaction).forEach(key => {
+                        const element = document.getElementById(`transaction-${key}`);
+                        if (element) {
+                            element.value = fields.transaction[key] ?? '-';
+                        }
+                    });
+                } else {
+                    console.warn("Missing transaction data in response:", data);
+                }
                 // From
-                Object.keys(fields.from).forEach(key => {
-                    const element = document.getElementById(`from-${key}`);
-                    if (element) {
-                        element.value = fields.from[key] || '-';
-                    }
-                });
+                if (fields.from) {
+                    Object.keys(fields.from).forEach(key => {
+                        const element = document.getElementById(`from-${key}`);
+                        if (element) {
+                            element.value = fields.from[key] || '-';
+                        }
+                    });
+                }
 
                 // To
-                Object.keys(fields.to).forEach(key => {
-                    const element = document.getElementById(`to-${key}`);
-                    if (element) {
-                        element.value = fields.to[key] || '-';
-                    }
-                });
+                if (fields.to) {
+                    Object.keys(fields.to).forEach(key => {
+                        const element = document.getElementById(`to-${key}`);
+                        if (element) {
+                            element.value = fields.to[key] || '-';
+                        }
+                    });
+                }
 
                 // References
-                Object.keys(fields.references).forEach(key => {
-                    const element = document.getElementById(`references-${key}`);
-                    if (element) {
-                        element.value = fields.references[key] || '-';
-                    }
-                });
+                if (fields.references) {
+                    Object.keys(fields.references).forEach(key => {
+                        const element = document.getElementById(`references-${key}`);
+                        if (element) {
+                            element.value = fields.references[key] || '-';
+                        }
+                    });
+                }
 
             } catch (error) {
                 console.error('Error:', error);
@@ -201,7 +224,7 @@
             dropZone.addEventListener(eventName, preventDefaults, false);
         });
 
-        function preventDefaults (e) {
+        function preventDefaults(e) {
             e.preventDefault();
             e.stopPropagation();
         }
@@ -231,4 +254,5 @@
         }
     </script>
 </body>
+
 </html>
